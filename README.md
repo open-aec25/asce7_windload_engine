@@ -1,6 +1,6 @@
 # ASCE 7 Wind Load Engine
 
-A lightweight, dependency-free HTML prototype for preliminary ASCE 7-16 MWFRS wind load calculations.
+A lightweight, dependency-free HTML prototype for preliminary ASCE 7-16 MWFRS wind load calculations. This will be used down stream for future agentic use, once all the logic and constraints are encoded.
 
 The current app focuses on a low-rise office building workflow with live inputs, derived geometry, velocity pressure summaries, wall pressure tables, roof pressure tables, and base shear output. It is intentionally packaged as a single `index.html` file so users can open it directly, read the code, and make targeted edits without a build system.
 
@@ -20,6 +20,7 @@ No installation, package manager, backend, or internet connection is required.
 - Gable roof coefficient interpolation for the implemented prototype tables
 - Light/dark theme support
 - Single-file HTML/CSS/JavaScript architecture
+- Does not take into account effects from hills, ridges or escarpments
 
 ## Important Disclaimer
 
