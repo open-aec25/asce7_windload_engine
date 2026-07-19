@@ -1,0 +1,615 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wind Load Calculator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#f5f4ef; --surface:#fff; --surface2:#f0ede6; --surface3:#faf9f6;
+      --border:rgba(0,0,0,.12); --border-med:rgba(0,0,0,.18);
+      --text:#1a1916; --muted:#706e67; --faint:#9c9a93;
+      --brand:#d97757; --brand-light:#faf0eb; --brand-border:#f0c4af; --brand-dark:#a84f32;
+      --info:#2d6fa8; --info-bg:#eaf2fb; --warn:#7a5010; --warn-bg:#fdf5e6; --warn-border:#f5d08a;
+      --ok:#2f6b4f; --ok-bg:#e8f4ee; --radius:8px; --radius-sm:6px;
+      --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif;
+      --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    }
+    html[data-theme="dark"] {
+      --bg:#171612; --surface:#23211c; --surface2:#302d26; --surface3:#29261f;
+      --border:rgba(255,255,255,.12); --border-med:rgba(255,255,255,.2);
+      --text:#f4f0e8; --muted:#c2b9aa; --faint:#8f887c;
+      --brand:#e08a6a; --brand-light:#3a261f; --brand-border:#7c4c3d; --brand-dark:#f0aa8f;
+      --info:#86bff0; --info-bg:#1b3042; --warn:#efc36f; --warn-bg:#3c2c14; --warn-border:#755922;
+      --ok:#88d2aa; --ok-bg:#1c3529;
+    }
+    body { font-family:var(--sans); background:var(--bg); color:var(--text); min-height:100vh; padding-bottom:5rem; font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+    .topbar { background:var(--surface); border-bottom:1px solid var(--border); height:52px; padding:0 2rem; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:10; }
+    .topbar-divider { width:1px; height:18px; background:var(--border-med); margin:0 4px; } .topbar-title { font-size:13px; color:var(--muted); }
+    .topbar-badge { margin-left:auto; font-size:11px; padding:3px 10px; border-radius:999px; background:var(--brand-light); color:var(--brand-dark); border:1px solid var(--brand-border); font-weight:600; }
+    .theme-toggle { min-height:30px; border:1px solid var(--border-med); border-radius:999px; background:var(--surface3); color:var(--muted); padding:4px 10px; display:flex; align-items:center; gap:6px; font:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+    .theme-toggle:hover { color:var(--text); border-color:var(--brand-border); }
+    .theme-icon { font-size:13px; line-height:1; }
+    .page { max-width:1360px; margin:0 auto; padding:2.5rem 1.5rem; } header { margin-bottom:2rem; max-width:1060px; }
+    .header-eyebrow { font-size:12px; color:var(--faint); margin-bottom:6px; } h1 { font-size:28px; font-weight:600; line-height:1.2; margin-bottom:6px; } .header-sub { font-size:13px; color:var(--muted); }
+    .section-label { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); margin:2rem 0 .75rem; display:flex; align-items:center; gap:10px; }
+    .section-label::after { content:""; flex:1; height:1px; background:var(--border); }
+    .panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem; }
+    .app-layout { display:grid; grid-template-columns:minmax(260px,310px) minmax(0,1fr); gap:1.25rem; align-items:start; }
+    .control-sidebar { position:sticky; top:68px; max-height:calc(100vh - 84px); overflow:auto; padding-right:2px; scrollbar-width:thin; }
+    .control-sidebar .section-label { margin-top:0; }
+    .control-sidebar .controls-panel { display:block; padding:1rem; }
+    .control-sidebar .controls-panel > aside { margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid var(--border); }
+    .control-sidebar .params-grid { grid-template-columns:1fr; gap:.7rem; }
+    .control-sidebar .roof-options { grid-template-columns:1fr; }
+    .control-sidebar .roof-option { min-height:64px; padding:8px; grid-template-columns:48px 1fr; }
+    .control-sidebar .roof-icon { width:48px; height:34px; }
+    .control-sidebar .switch-line { align-items:flex-start; flex-direction:column; gap:8px; }
+    .control-sidebar .floor-grid { grid-template-columns:1fr; }
+    .results-pane .section-label:first-child { margin-top:0; }
+    .controls-panel { display:grid; grid-template-columns:220px minmax(0,1fr); gap:1rem; align-items:start; }
+    .control-subtitle { font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--faint); margin-bottom:8px; }
+    .params-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:.75rem; } .field { display:flex; flex-direction:column; gap:6px; }
+    .field-label { font-size:12px; color:var(--muted); display:flex; justify-content:space-between; gap:12px; align-items:baseline; } .help { font-size:11px; color:var(--faint); line-height:1.4; }
+    .value-chip { font-family:var(--mono); font-size:12px; font-weight:600; color:var(--text); background:var(--surface2); padding:1px 7px; border-radius:4px; white-space:nowrap; }
+    input[type="number"], select { width:100%; min-height:34px; border:1px solid var(--border-med); border-radius:var(--radius-sm); background:var(--surface); color:var(--text); padding:7px 9px; font:inherit; }
+    input[type="range"] { appearance:none; width:100%; height:3px; background:var(--border-med); border-radius:2px; outline:none; cursor:pointer; margin:8px 0 2px; }
+    input[type="range"]::-webkit-slider-thumb { appearance:none; width:16px; height:16px; background:var(--brand); border-radius:50%; border:2px solid white; box-shadow:0 0 0 1px var(--brand); }
+    input[type="range"]::-moz-range-thumb { width:16px; height:16px; background:var(--brand); border:2px solid white; border-radius:50%; }
+    .range-ticks { display:flex; justify-content:space-between; font-size:10px; color:var(--faint); font-family:var(--mono); }
+    .roof-options { display:grid; grid-template-columns:1fr; gap:8px; }
+    .roof-option, .toggle-option { border:1px solid var(--border); background:var(--surface3); color:var(--muted); border-radius:var(--radius); cursor:pointer; transition:border-color .15s,background .15s,color .15s; }
+    .roof-option { min-height:72px; padding:10px; display:grid; grid-template-columns:56px 1fr; align-items:center; gap:10px; text-align:left; }
+    .roof-option[aria-pressed="true"], .toggle-option[aria-pressed="true"] { background:var(--brand-light); color:var(--brand-dark); border-color:var(--brand-border); }
+    .roof-title { display:block; font-weight:600; color:currentColor; margin-bottom:2px; } .roof-note { display:block; font-size:11px; color:var(--faint); line-height:1.35; } .roof-icon { width:56px; height:40px; }
+    .toggle-row { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; } .toggle-option { min-height:38px; padding:8px 10px; font-weight:600; }
+    .custom-floor-panel { display:none; margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border); } .custom-floor-panel.active { display:block; }
+    .floor-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:10px; }
+    .switch-line { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:.8rem; padding-top:.8rem; border-top:1px solid var(--border); }
+    .switch-line label { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px; cursor:pointer; }
+    .preview-layout { display:grid; grid-template-columns:minmax(280px,1fr) minmax(230px,.8fr); gap:1.25rem; align-items:center; }
+    .preview-canvas { background:linear-gradient(var(--surface),var(--surface3)); border:1px solid var(--border); border-radius:var(--radius); min-height:320px; display:flex; align-items:center; justify-content:center; padding:12px; }
+    #previewSvg { width:100%; max-width:560px; height:auto; display:block; } .legend { display:grid; gap:8px; } .legend-row { display:grid; grid-template-columns:14px 1fr; gap:8px; align-items:start; font-size:12px; color:var(--muted); }
+    .swatch { width:14px; height:14px; border-radius:3px; margin-top:2px; } .windward{background:#d97757;} .leeward{background:#2d6fa8;} .sidezone{background:#8a7d55;} .neutral{background:#d8d4c8;} .windarrow{background:#0780c8;}
+    .cards-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:8px; } .metric-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:.9rem 1rem; } .metric-card.accent { background:var(--brand-light); border-color:var(--brand-border); }
+    .metric-label { font-size:11px; color:var(--muted); margin-bottom:6px; line-height:1.35; } .metric-value { font-family:var(--mono); font-size:18px; font-weight:600; overflow-wrap:anywhere; } .metric-card.accent .metric-value { color:var(--brand-dark); } .metric-unit { font-size:11px; color:var(--faint); margin-top:3px; line-height:1.35; }
+    .formula-box { background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--brand); border-radius:var(--radius); padding:1rem 1.25rem; color:var(--muted); overflow-x:auto; }
+    .equation-stack { display:grid; gap:.75rem; min-width:520px; }
+    .equation-line { display:flex; align-items:center; flex-wrap:wrap; gap:.7rem; font-family:Georgia,"Times New Roman",serif; color:var(--text); font-size:19px; line-height:1.75; }
+    .equation-line.primary { font-size:22px; color:var(--brand-dark); }
+    .equation-label { min-width:82px; font-family:var(--sans); font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--faint); }
+    .eq-var { font-style:italic; }
+    .eq-const { font-style:normal; color:var(--text); }
+    .eq-factor { display:inline-block; margin:0 .16em; }
+    .eq-op { display:inline-block; margin:0 .32em; }
+    .eq-tight { display:inline-block; margin:0 .08em; }
+    .eq-note { display:flex; flex-wrap:wrap; gap:8px; padding-top:.25rem; }
+    .eq-chip { font-family:var(--mono); font-size:11px; color:var(--muted); background:var(--surface2); border-radius:4px; padding:3px 7px; white-space:nowrap; }
+    .table-wrap { overflow-x:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); } table { width:100%; border-collapse:collapse; font-size:13px; } th { text-align:left; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--faint); padding:10px 16px; background:var(--surface2); border-bottom:1px solid var(--border); white-space:nowrap; } td { padding:10px 16px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:middle; } tr:last-child td { border-bottom:none; } tr:hover td { background:var(--surface3); } .mono { font-family:var(--mono); }
+    #wallTable tbody tr.story-band-a td { background:color-mix(in srgb, var(--surface) 92%, var(--brand-light)); }
+    #wallTable tbody tr.story-band-b td { background:color-mix(in srgb, var(--surface) 92%, var(--info-bg)); }
+    #wallTable tbody tr.story-start td { border-top:2px solid var(--border-med); }
+    #wallTable tbody tr:first-child td { border-top:none; }
+    #wallTable tbody tr:hover td { background:var(--brand-light); }
+    .badge { display:inline-block; font-size:10px; padding:2px 8px; border-radius:999px; font-weight:600; letter-spacing:.02em; } .badge-pressure{background:var(--info-bg);color:var(--info);} .badge-suction,.badge-uplift{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-border);}
+    .note-box { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.25rem 1.5rem; font-size:12.5px; color:var(--muted); line-height:1.8; } .note-box strong { color:var(--text); font-weight:600; }
+    footer { margin-top:3rem; border-top:1px solid var(--border); padding-top:1.25rem; font-size:11px; color:var(--faint); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; } .footer-brand { display:flex; align-items:center; gap:6px; font-weight:600; color:var(--muted); }
+    @media (max-width:960px) { .app-layout{grid-template-columns:1fr;} .control-sidebar{position:static; max-height:none; overflow:visible; padding-right:0;} .control-sidebar .roof-options{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    @media (max-width:820px) { .controls-panel{grid-template-columns:1fr;} .roof-options{grid-template-columns:repeat(2,minmax(0,1fr));} }
+    @media (max-width:720px) { .topbar{padding:0 1rem;} .page{padding:1.5rem 1rem;} h1{font-size:23px;} .preview-layout{grid-template-columns:1fr;} .cards-grid{grid-template-columns:repeat(2,minmax(0,1fr));} .topbar-badge{display:none;} .switch-line{align-items:flex-start; flex-direction:column;} }
+    @media (max-width:440px) { .cards-grid{grid-template-columns:1fr;} .roof-option{grid-template-columns:64px 1fr;} .toggle-row{grid-template-columns:1fr;} }
+    @media print { .topbar{display:none;} body{background:white;} input[type="range"],button{display:none;} }
+  </style>
+</head>
+<body>
+  <nav class="topbar" role="banner">
+    <span class="topbar-title">Wind Load Calculator</span><span class="topbar-badge">ASCE 7-16</span><button class="theme-toggle" type="button" id="themeToggle" aria-label="Switch to dark mode" aria-pressed="false"><span class="theme-icon" aria-hidden="true">☾</span><span id="themeLabel">Dark</span></button>
+  </nav>
+  <main class="page">
+    <header><p class="header-eyebrow">Directional Procedure - Chapter 27 MWFRS</p><h1>Wind Design Load Calculator</h1></header>
+
+    <div class="app-layout">
+      <aside class="control-sidebar">
+        <p class="section-label">Input Parameters</p>
+        <section class="panel controls-panel">
+          <aside>
+            <div class="control-subtitle">Roof Type</div>
+            <div class="roof-options" role="group" aria-label="Roof type">
+              <button class="roof-option" type="button" data-roof="flat" aria-pressed="true"><svg class="roof-icon" viewBox="0 0 96 64" aria-hidden="true"><rect x="18" y="30" width="60" height="24" fill="#faf9f6" stroke="#706e67" stroke-width="2"/><path d="M14 28H82" stroke="#d97757" stroke-width="5" stroke-linecap="round"/><path d="M20 18h34" stroke="#2d6fa8" stroke-width="3" stroke-linecap="round"/><path d="M54 18l-8 -5v10z" fill="#2d6fa8"/></svg><span><span class="roof-title">Flat</span><span class="roof-note">Flat roof MWFRS zones</span></span></button>
+              <button class="roof-option" type="button" data-roof="gable" aria-pressed="false"><svg class="roof-icon" viewBox="0 0 96 64" aria-hidden="true"><path d="M16 34L48 14L80 34" fill="none" stroke="#d97757" stroke-width="5" stroke-linejoin="round"/><rect x="22" y="34" width="52" height="20" fill="#faf9f6" stroke="#706e67" stroke-width="2"/><path d="M16 34h64" stroke="#706e67" stroke-width="2"/><path d="M20 20h34" stroke="#2d6fa8" stroke-width="3" stroke-linecap="round"/><path d="M54 20l-8 -5v10z" fill="#2d6fa8"/></svg><span><span class="roof-title">Gable</span><span class="roof-note">Slope and ridge orientation</span></span></button>
+            </div>
+          </aside>
+          <div>
+            <div class="control-subtitle">Geometry & Wind</div>
+            <div class="params-grid">
+              <div class="field"><div class="field-label">Basic wind speed (V) <span class="value-chip" id="wsOut">115 mph</span></div><input type="range" id="windSpeed" min="90" max="150" step="5" value="115"><div class="range-ticks"><span>90</span><span>120</span><span>150</span></div></div>
+              <div class="field"><label class="field-label" for="exposureCategory">Exposure category <span class="value-chip" id="exposureOut">B</span></label><select id="exposureCategory"><option value="B" selected>B - urban/suburban terrain</option><option value="C">C - open terrain</option><option value="D">D - flat unobstructed/coastal</option></select><div class="help">Selects ASCE 7 alpha and z<sub>g</sub> constants for K<sub>z</sub>.</div></div>
+              <div class="field"><label class="field-label" for="dimRidge">Building length <span class="value-chip" id="dimRidgeOut">60 ft</span></label><input type="number" id="dimRidge" min="10" max="300" step="5" value="60"><div class="help">Fixed architectural dimension along the ridge or reference axis.</div></div>
+              <div class="field"><label class="field-label" for="dimPerp">Building width <span class="value-chip" id="dimPerpOut">40 ft</span></label><input type="number" id="dimPerp" min="10" max="300" step="5" value="40"><div class="help">Fixed architectural dimension perpendicular to the ridge or reference axis.</div></div>
+              <div class="field"><label class="field-label" for="storyCount">Number of occupied floors <span class="value-chip" id="storyOut">1</span></label><input type="number" id="storyCount" min="1" max="20" step="1" value="1"><div class="help">Occupied floors only, not including roof.</div></div>
+              <div class="field"><label class="field-label" for="typStoryHeight">Typical story height <span class="value-chip" id="typStoryOut">15 ft</span></label><input type="number" id="typStoryHeight" min="8" max="25" step="0.5" value="15"><div class="help">Uniform height mode computes each floor elevation.</div></div>
+              <div class="field gable-only"><div class="field-label">Roof slope angle <span class="value-chip" id="slopeOut">20 deg</span></div><input type="range" id="roofSlope" min="5" max="45" step="1" value="20"><div class="range-ticks"><span>5</span><span>25</span><span>45</span></div></div>
+              <div class="field gable-only"><div class="field-label">Wind direction relative to ridge <span class="value-chip" id="orientationOut">Normal to ridge</span></div><div class="toggle-row" role="group" aria-label="Wind direction relative to ridge"><button class="toggle-option" type="button" data-orientation="normal" aria-pressed="true">Normal to ridge</button><button class="toggle-option" type="button" data-orientation="parallel" aria-pressed="false">Parallel to ridge</button></div><div class="help">Changes the wind direction and derives ASCE L and B; architectural dimensions stay fixed.</div></div>
+            </div>
+            <div class="switch-line"><label for="customFloors"><input type="checkbox" id="customFloors">Custom per-floor story heights</label><span class="value-chip">Running total: <span id="runningTotal">15 ft</span></span></div>
+            <div class="custom-floor-panel" id="customFloorPanel"><div class="help">Story heights generate actual floor elevations for qz profile calculations.</div><div class="floor-grid" id="floorInputs"></div></div>
+          </div>
+        </section>
+      </aside>
+      <div class="results-pane">
+
+    <p class="section-label">Visual Confirmation</p>
+    <section class="panel preview-layout"><div class="preview-canvas"><svg id="previewSvg" viewBox="0 0 560 360" role="img" aria-label="Wind load preview diagram"></svg></div><div class="legend"><div class="legend-row"><span class="swatch windarrow"></span><span>Selected wind direction</span></div><div class="legend-row"><span class="swatch windward"></span><span>Windward wall for selected direction</span></div><div class="legend-row"><span class="swatch neutral"></span><span>Fixed architectural geometry and ASCE height h</span></div></div></section>
+
+    <p class="section-label">Design Equation</p><div class="formula-box"><div class="equation-stack">
+      <div class="equation-line primary"><span class="equation-label">Pressure</span><span><span class="eq-var">p</span><span class="eq-op">=</span><span class="eq-factor"><span class="eq-var">q</span></span><span class="eq-factor"><span class="eq-var">G</span></span><span class="eq-factor"><span class="eq-var">C</span><sub>p</sub></span><span class="eq-op">&plusmn;</span><span class="eq-factor"><span class="eq-var">q</span><sub>h</sub></span><span class="eq-factor"><span class="eq-var">GC</span><sub>pi</sub></span></span></div>
+      <div class="equation-line"><span class="equation-label">Velocity</span><span><span class="eq-var">q</span><span class="eq-op">=</span><span class="eq-factor eq-const">0.00256</span><span class="eq-factor"><span class="eq-var">K</span><sub>z</sub></span><span class="eq-factor"><span class="eq-var">K</span><sub>zt</sub></span><span class="eq-factor"><span class="eq-var">K</span><sub>d</sub></span><span class="eq-factor"><span class="eq-var">K</span><sub>e</sub></span><span class="eq-factor"><span class="eq-var">V</span><sup>2</sup></span></span></div>
+      <div class="eq-note"><span class="eq-chip">K<sub>z</sub> from selected exposure</span><span class="eq-chip">K<sub>d</sub> = 0.85</span><span class="eq-chip">K<sub>zt</sub> = 1.0</span><span class="eq-chip">K<sub>e</sub> = 1.0</span><span class="eq-chip">G = 0.85</span><span class="eq-chip">GC<sub>pi</sub> = &plusmn;0.18</span></div>
+    </div></div>
+    <p class="section-label">Key Coefficients</p><div class="cards-grid" id="coeffCards"></div>
+    <p class="section-label">Velocity Pressure</p><div class="cards-grid" id="qCards"></div>
+    <p class="section-label">Wall Pressures - MWFRS</p><div class="table-wrap"><table id="wallTable"><thead><tr><th>Story</th><th>Surface</th><th>Floor elevation</th><th>Cp</th><th>Internal pressure term</th><th>Net design pressure</th><th>Tributary area</th><th>Floor force</th></tr></thead><tbody></tbody></table></div>
+    <p class="section-label" id="roofPressuresLabel">Roof Pressures - Flat Roof MWFRS</p><div class="table-wrap"><table id="roofTable"><thead><tr><th>Zone</th><th>Position</th><th>Cp</th><th>Net pressure</th><th>Zone area</th><th>Total force</th></tr></thead><tbody></tbody></table></div>
+    <p class="section-label">Design Base Shear Summary</p><div class="cards-grid" id="shearCards"></div>
+    <p class="section-label">Notes & Limitations</p><div class="note-box"><strong>Scope:</strong> This prototype produces MWFRS (Main Wind Force Resisting System) pressures for ASCE 7-16 Directional Procedure Chapter 27. Prototype roof scope is limited to flat and gable roofs.<br><br><strong>Geometry:</strong> Building length and width are fixed architectural dimensions. ASCE L is measured parallel to the selected wind direction and B is measured perpendicular to it, so their derived values change between orthogonal wind cases without changing the building geometry.<br><br><strong>Stories:</strong> Number of stories means occupied floors only and does not include the roof level. ASCE height h is derived from story/eave height; gable roofs steeper than 10 degrees use mean roof height, while gable roofs at 10 degrees or less use eave height.<br><br><strong>Out of scope:</strong> Components &amp; Cladding loads, monoslope roofs, mansard roofs, hip roofs, and automatic dual-orthogonal-direction analysis are deferred to future phases.<br><br><strong>Disclaimer:</strong> This tool is for preliminary estimation only. A licensed structural engineer must review, verify, and stamp all wind load calculations for use in design and construction documents.</div>
+      </div>
+    </div>
+    <footer><span>ASCE 7-16 - Ch. 26, Ch. 27, Fig. 27.3-1</span><span id="calcDate"></span></footer>
+  </main>
+<script>
+// ============================================================
+// 1. Application State And Engineering Constants
+// ============================================================
+const state = { roofType: "flat", orientation: "normal" };
+const EXPOSURES = {
+  B: { alpha: 7.0, zg: 1200 },
+  C: { alpha: 9.5, zg: 900 },
+  D: { alpha: 11.5, zg: 700 }
+};
+const WIND_CONSTANTS = {
+  Kd: 0.85,
+  Kzt: 1.0,
+  Ke: 1.0,
+  G: 0.85,
+  GCpi: 0.18
+};
+const $ = (id) => document.getElementById(id);
+$("calcDate").textContent = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
+// ============================================================
+// 2. Theme And General UI Helpers
+// ============================================================
+function setTheme(theme) {
+  const isDark = theme === 'dark';
+  document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+  $('themeToggle').setAttribute('aria-pressed', isDark ? 'true' : 'false');
+  $('themeToggle').setAttribute('aria-label', `Switch to ${isDark ? 'light' : 'dark'} mode`);
+  $('themeLabel').textContent = isDark ? 'Light' : 'Dark';
+  document.querySelector('.theme-icon').textContent = isDark ? '☀' : '☾';
+  try { localStorage.setItem('windProtoTheme', isDark ? 'dark' : 'light'); } catch (err) {}
+  if ($('previewSvg')) calc();
+}
+let savedTheme = 'light';
+try { savedTheme = localStorage.getItem('windProtoTheme') || 'light'; } catch (err) {}
+setTheme(savedTheme);
+$('themeToggle').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+function fmt(num, digits = 0) { const value = Number(num); return Number.isInteger(value) || digits === 0 ? value.toLocaleString() : value.toFixed(digits); }
+function card(label, val, unit, accent) { return `<div class="metric-card${accent ? " accent" : ""}"><div class="metric-label">${label}</div><div class="metric-value">${val}</div><div class="metric-unit">${unit}</div></div>`; }
+function setPressed(selector, value, attr) { document.querySelectorAll(selector).forEach((button) => button.setAttribute('aria-pressed', button.dataset[attr] === value ? 'true' : 'false')); }
+function updateConditionalFields() { const isGable = state.roofType === 'gable'; document.querySelectorAll('.gable-only').forEach((el) => { el.style.display = isGable ? '' : 'none'; }); }
+
+// ============================================================
+// 3. Wind Pressure Helpers
+// ============================================================
+function getExposureParams(exposure) { return EXPOSURES[exposure] || EXPOSURES.B; }
+function getKz(h, exposure = 'B') { const { zg, alpha } = getExposureParams(exposure); const z = Math.max(h, 15); return +(2.01 * Math.pow(z / zg, 2 / alpha)).toFixed(3); }
+function getQz(z, V, Kzt, Kd, Ke, exposure = 'B') { return +(0.00256 * getKz(z, exposure) * Kzt * Kd * Ke * V * V).toFixed(2); }
+
+// ============================================================
+// 4. Input Normalization And Geometry
+// ============================================================
+function clampStoryCount() { const count = Math.min(20, Math.max(1, Math.round(+$('storyCount').value || 1))); $('storyCount').value = count; return count; }
+function renderFloorInputs() { const count = clampStoryCount(); const typical = +$('typStoryHeight').value || 0; const existing = [...document.querySelectorAll('.floor-height')].map((input) => +input.value || typical); $('floorInputs').innerHTML = Array.from({ length: count }, (_, index) => { const value = existing[index] || typical || 12; return `<div class="field"><label class="field-label" for="floor${index + 1}">Story ${index + 1} height <span class="value-chip">${fmt(value, 1)} ft</span></label><input class="floor-height" id="floor${index + 1}" type="number" min="8" max="25" step="0.5" value="${value}"></div>`; }).join(''); document.querySelectorAll('.floor-height').forEach((input) => input.addEventListener('input', calc)); }
+function getStoryHeights() { const count = clampStoryCount(); const typical = +$('typStoryHeight').value || 0; if (!$('customFloors').checked) return Array.from({ length: count }, () => typical); return [...document.querySelectorAll('.floor-height')].slice(0, count).map((input) => +input.value || 0); }
+function getDerivedGeometry() { const alongRidge = Math.max(10, +$('dimRidge').value || 10); const perpendicular = Math.max(10, +$('dimPerp').value || 10); if (state.roofType === 'gable' && state.orientation === 'parallel') return { L: alongRidge, B: perpendicular, alongRidge, perpendicular }; return { L: perpendicular, B: alongRidge, alongRidge, perpendicular }; }
+function getRoofHeightData(eaveHeight, roofType, slope, perpendicular) {
+  if (roofType !== 'gable') return { h: eaveHeight, eaveHeight, ridgeHeight: eaveHeight, roofRise: 0, basis: 'roof height' };
+  const roofRise = Math.tan(slope * Math.PI / 180) * perpendicular / 2;
+  const ridgeHeight = eaveHeight + roofRise;
+  const useEaveHeight = slope <= 10;
+  return {
+    h: +(useEaveHeight ? eaveHeight : eaveHeight + roofRise / 2).toFixed(2),
+    eaveHeight,
+    ridgeHeight: +ridgeHeight.toFixed(2),
+    roofRise: +roofRise.toFixed(2),
+    basis: useEaveHeight ? 'eave height, slope <= 10 deg' : 'mean roof height'
+  };
+}
+function interpolate(x, x1, y1, x2, y2) { return y1 + ((x - x1) / (x2 - x1)) * (y2 - y1); }
+function getLeewardWallCp(L, B) { const ratio = B > 0 ? L / B : 1; if (ratio <= 1) return -0.5; if (ratio <= 2) return +interpolate(ratio, 1, -0.5, 2, -0.3).toFixed(2); if (ratio <= 4) return +interpolate(ratio, 2, -0.3, 4, -0.2).toFixed(2); return -0.2; }
+
+// ============================================================
+// 5. Roof Coefficient Data And Interpolation
+// ============================================================
+const gCp = (cp, reduceByArea = false) => ({ cp, reduceByArea });
+const GABLE_WINDWARD_CP = [
+  { hOverL: 0.25, theta: { 10: [gCp(-0.7), gCp(-0.18)], 15: [gCp(-0.5), gCp(0.0)], 20: [gCp(-0.3), gCp(0.2)], 25: [gCp(-0.2), gCp(0.3)], 30: [gCp(-0.2), gCp(0.3)], 35: [gCp(0.0), gCp(0.4)], 45: [gCp(0.4)], 60: [gCp(0.6)] } },
+  { hOverL: 0.5, theta: { 10: [gCp(-0.9), gCp(-0.18)], 15: [gCp(-0.7), gCp(-0.18)], 20: [gCp(-0.4), gCp(0.0)], 25: [gCp(-0.3), gCp(0.2)], 30: [gCp(-0.2), gCp(0.2)], 35: [gCp(-0.2), gCp(0.3)], 45: [gCp(0.0), gCp(0.4)], 60: [gCp(0.6)] } },
+  { hOverL: 1.0, theta: { 10: [gCp(-1.3, true), gCp(-0.18)], 15: [gCp(-1.0), gCp(-0.18)], 20: [gCp(-0.7), gCp(-0.18)], 25: [gCp(-0.5), gCp(0.0)], 30: [gCp(-0.3), gCp(0.2)], 35: [gCp(-0.2), gCp(0.2)], 45: [gCp(0.0), gCp(0.3)], 60: [gCp(0.6)] } }
+];
+const GABLE_LEEWARD_CP = [
+  { hOverL: 0.25, theta: { 10: [gCp(-0.3)], 15: [gCp(-0.5)], 20: [gCp(-0.6)] } },
+  { hOverL: 0.5, theta: { 10: [gCp(-0.5)], 15: [gCp(-0.5)], 20: [gCp(-0.6)] } },
+  { hOverL: 1.0, theta: { 10: [gCp(-0.7)], 15: [gCp(-0.6)], 20: [gCp(-0.6)] } }
+];
+const LOW_SLOPE_GABLE_CP = {
+  firstHalfH: { low: [gCp(-0.9), gCp(-0.18)], high: [gCp(-1.3, true), gCp(-0.18)] },
+  halfHToH: { low: [gCp(-0.9), gCp(-0.18)], high: [gCp(-0.7), gCp(-0.18)] },
+  hTo2H: { low: [gCp(-0.5), gCp(-0.18)], high: [gCp(-0.7), gCp(-0.18)] },
+  beyond2H: { low: [gCp(-0.3), gCp(-0.18)], high: [gCp(-0.7), gCp(-0.18)] }
+};
+function areaReductionFactor(area) {
+  if (area <= 100) return 1.0;
+  if (area <= 250) return interpolate(area, 100, 1.0, 250, 0.9);
+  if (area <= 1000) return interpolate(area, 250, 0.9, 1000, 0.8);
+  return 0.8;
+}
+function cpValue(entry, area) { return entry.reduceByArea ? entry.cp * areaReductionFactor(area) : entry.cp; }
+function cpSign(value) { if (Math.abs(value) < 0.00001) return 'zero'; return value > 0 ? 'positive' : 'negative'; }
+function uniqueCpCases(values) { return [...new Set(values.map((value) => +value.toFixed(4)))].map((cp) => ({ cp })).sort((a, b) => a.cp - b.cp); }
+function getSignValues(cases, sign) {
+  const values = cases.filter((entry) => cpSign(entry.cp) === sign).map((entry) => entry.cp);
+  return values.sort((a, b) => a - b);
+}
+function interpolateCpCases(x, x1, cases1, x2, cases2) {
+  if (Math.abs(x2 - x1) < 0.00001) return uniqueCpCases(cases1.map((entry) => entry.cp));
+  const signs = ['negative', 'positive'].filter((sign) => cases1.some((entry) => cpSign(entry.cp) === sign) || cases2.some((entry) => cpSign(entry.cp) === sign));
+  const values = signs.length ? signs.flatMap((sign) => {
+    const values1 = getSignValues(cases1, sign);
+    const values2 = getSignValues(cases2, sign);
+    const count = Math.max(values1.length, values2.length);
+    return Array.from({ length: count }, (_, index) => interpolate(x, x1, values1[index] ?? 0.0, x2, values2[index] ?? 0.0));
+  }) : [0.0];
+  return uniqueCpCases(values);
+}
+function bracketByValue(rows, value, key) {
+  if (value <= rows[0][key]) return [rows[0], rows[0]];
+  if (value >= rows[rows.length - 1][key]) return [rows[rows.length - 1], rows[rows.length - 1]];
+  for (let index = 0; index < rows.length - 1; index++) {
+    if (value >= rows[index][key] && value <= rows[index + 1][key]) return [rows[index], rows[index + 1]];
+  }
+  return [rows[0], rows[0]];
+}
+function thetaCases(row, theta, area, thetaColumns) {
+  const limitedTheta = Math.min(theta, 80);
+  const maxTheta = thetaColumns[thetaColumns.length - 1];
+  if (limitedTheta >= maxTheta && maxTheta === 60) return [{ cp: 0.01 * limitedTheta }];
+  if (limitedTheta >= maxTheta) return row.theta[maxTheta].map((entry) => ({ cp: cpValue(entry, area) }));
+  const [t1, t2] = bracketByValue(thetaColumns.map((value) => ({ value })), limitedTheta, 'value').map((entry) => entry.value);
+  const cases1 = row.theta[t1].map((entry) => ({ cp: cpValue(entry, area) }));
+  const cases2 = row.theta[t2].map((entry) => ({ cp: cpValue(entry, area) }));
+  return interpolateCpCases(limitedTheta, t1, cases1, t2, cases2);
+}
+function resolveGableTableCases(table, hOverL, theta, area, thetaColumns) {
+  const [row1, row2] = bracketByValue(table, hOverL, 'hOverL');
+  const cases1 = thetaCases(row1, theta, area, thetaColumns);
+  const cases2 = thetaCases(row2, theta, area, thetaColumns);
+  return interpolateCpCases(hOverL, row1.hOverL, cases1, row2.hOverL, cases2);
+}
+function resolveLowSlopeCases(hOverL, segmentKey, area) {
+  const entry = LOW_SLOPE_GABLE_CP[segmentKey];
+  const lowCases = entry.low.map((cp) => ({ cp: cpValue(cp, area) }));
+  const highCases = entry.high.map((cp) => ({ cp: cpValue(cp, area) }));
+  if (hOverL <= 0.5) return lowCases;
+  if (hOverL >= 1.0) return highCases;
+  return interpolateCpCases(hOverL, 0.5, lowCases, 1.0, highCases);
+}
+function governingRoofPressure(cpCases, qh, G, GCpi) {
+  const pressures = cpCases.flatMap(({ cp }) => [GCpi, -GCpi].map((internal) => ({ Cp: cp, netP: qh * G * cp - qh * internal, internal })));
+  const governing = pressures.reduce((best, item) => Math.abs(item.netP) > Math.abs(best.netP) ? item : best, pressures[0]);
+  return { Cp: +governing.Cp.toFixed(2), netP: +governing.netP.toFixed(2), governingGCpi: governing.internal };
+}
+function roofZoneFromCases(zone, cpCases, qh, G, GCpi) { return { ...zone, ...governingRoofPressure(cpCases, qh, G, GCpi), cpCases }; }
+function getLowSlopeGableZones(H, L, B, hOverL, qh, G, GCpi) {
+  const candidateZones = hOverL <= 0.5
+    ? [
+      { key: 'firstHalfH', lbl: 'Roof zone 1', start: 0, end: Math.min(H / 2, L) },
+      { key: 'halfHToH', lbl: 'Roof zone 2', start: H / 2, end: Math.min(H, L) },
+      { key: 'hTo2H', lbl: 'Roof zone 3', start: H, end: Math.min(2 * H, L) },
+      { key: 'beyond2H', lbl: 'Roof zone 4', start: 2 * H, end: L }
+    ]
+    : hOverL >= 1.0
+      ? [
+        { key: 'firstHalfH', lbl: 'Roof zone 1', start: 0, end: Math.min(H / 2, L) },
+        { key: 'halfHToH', lbl: 'Roof zone 2', start: H / 2, end: L }
+      ]
+      : [
+        { key: 'firstHalfH', lbl: 'Roof zone 1', start: 0, end: Math.min(H / 2, L) },
+        { key: 'halfHToH', lbl: 'Roof zone 2', start: H / 2, end: Math.min(H, L) },
+        { key: 'hTo2H', lbl: 'Roof zone 3', start: H, end: L }
+      ];
+  return candidateZones.filter((zone) => zone.end > zone.start).map((zone) => {
+    const area = (zone.end - zone.start) * B;
+    const cpCases = resolveLowSlopeCases(hOverL, zone.key, area);
+    return roofZoneFromCases({ lbl: zone.lbl, pos: `${fmt(zone.start)} - ${fmt(zone.end)} ft from windward edge`, area }, cpCases, qh, G, GCpi);
+  });
+}
+// ============================================================
+// 6. Visual Preview Rendering
+// ============================================================
+function drawPreview(inputs) {
+  const { roofType, orientation, slope, H, L, B, alongRidge, perpendicular } = inputs;
+  const styles = getComputedStyle(document.documentElement);
+  const css = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
+  const surface = css('--surface', '#fff');
+  const surface2 = css('--surface2', '#f0ede6');
+  const surface3 = css('--surface3', '#faf9f6');
+  const text = css('--text', '#1a1916');
+  const muted = css('--muted', '#706e67');
+  const brand = css('--brand', '#d97757');
+  const info = css('--info', '#0780c8');
+  const neutral = document.documentElement.dataset.theme === 'dark' ? '#5b554a' : '#d8d4c8';
+  const isParallel = roofType === 'gable' && orientation === 'parallel';
+  const directionLabel = roofType === 'flat' ? 'Reference wind direction' : `Wind ${isParallel ? 'parallel' : 'normal'} to ridge`;
+  const windwardHighlight = isParallel
+    ? `<polygon points="276,207 354,148 432,130 432,222 276,300" fill="${brand}" opacity="0.18"/>
+       <polygon points="276,207 354,148 432,130" fill="${brand}" opacity="0.28"/>`
+    : `<polygon points="122,130 276,207 276,300 122,222" fill="${brand}" opacity="0.2"/>`;
+  const windIndicator = isParallel
+    ? `<path d="M506 292L386 232" stroke="${info}" stroke-width="4" marker-end="url(#blueArrow)"/>
+       <text x="442" y="304" font-size="18" fill="${info}" font-weight="600">WIND</text>`
+    : `<path d="M58 292L168 232" stroke="${info}" stroke-width="4" marker-end="url(#blueArrow)"/>
+       <text x="36" y="324" font-size="18" fill="${info}" font-weight="600">WIND</text>`;
+  const flatRoof = `<polygon points="122,130 278,54 432,130 276,207" fill="${neutral}" opacity="0.9" stroke="${text}" stroke-width="2"/>`;
+  const gableRoof = `
+    <polygon points="122,130 200,72 354,148 276,207" fill="${surface2}" opacity="0.95" stroke="${text}" stroke-width="2"/>
+    <polygon points="200,72 278,54 432,130 354,148" fill="${neutral}" opacity="0.95" stroke="${text}" stroke-width="2"/>
+    <polygon points="276,207 354,148 432,130" fill="${surface}" stroke="${text}" stroke-width="2"/>
+    <path d="M200 72L354 148" stroke="${text}" stroke-width="2"/>`;
+  const roofShape = roofType === 'flat' ? flatRoof : gableRoof;
+  $('previewSvg').innerHTML = `
+    <defs>
+      <marker id="blueArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${info}"></path></marker>
+      <marker id="blackArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${text}"></path></marker>
+    </defs>
+    <rect x="10" y="10" width="540" height="340" rx="8" fill="${surface}" stroke="${neutral}"/>
+    <polygon points="122,130 276,207 276,300 122,222" fill="${surface3}" stroke="${text}" stroke-width="2"/>
+    <polygon points="276,207 432,130 432,222 276,300" fill="${surface}" stroke="${text}" stroke-width="2"/>
+    <polygon points="122,222 276,300 432,222 276,300" fill="none" stroke="${text}" stroke-width="1.5"/>
+    <polygon points="276,207 432,130 432,222 276,300" fill="${neutral}" opacity="0.14"/>
+    ${roofShape}
+    ${windwardHighlight}
+    ${windIndicator}
+    <path d="M118 250L246 312" stroke="${text}" stroke-width="2" marker-start="url(#blackArrow)" marker-end="url(#blackArrow)"/>
+    <text x="124" y="326" font-size="13" fill="${text}">Building length = ${fmt(alongRidge)} ft</text>
+    <path d="M306 312L448 243" stroke="${text}" stroke-width="2" marker-start="url(#blackArrow)" marker-end="url(#blackArrow)"/>
+    <text x="340" y="326" font-size="13" fill="${text}">Building width = ${fmt(perpendicular)} ft</text>
+    <path d="M92 130V222" stroke="${neutral}" stroke-width="2"/>
+    <path d="M86 130H98M86 222H98" stroke="${neutral}" stroke-width="2"/>
+    <text x="72" y="179" font-size="16" fill="${text}" transform="rotate(-90 72 179)">h = ${fmt(H, 1)} ft</text>
+    <text x="280" y="28" text-anchor="middle" font-size="13" fill="${text}" font-weight="600">${directionLabel}</text>
+    <text x="280" y="47" text-anchor="middle" font-size="12" fill="${muted}">ASCE dimensions: L = ${fmt(L)} ft parallel to wind; B = ${fmt(B)} ft perpendicular</text>`;
+}
+// ============================================================
+// 7. Roof Zone Calculations
+// ============================================================
+function getRoofZones(roofType, orientation, H, L, B, qh, G, GCpi, slope) {
+  const hOverL = L > 0 ? H / L : 1;
+  if (roofType === 'gable') {
+    if (orientation === 'parallel' || slope < 10) return getLowSlopeGableZones(H, L, B, hOverL, qh, G, GCpi);
+    const windwardArea = L * B / 2;
+    const leewardArea = L * B / 2;
+    return [
+      roofZoneFromCases({ lbl: 'Windward roof slope', pos: `h/L ${fmt(hOverL, 2)}; theta ${fmt(slope)} deg`, area: windwardArea }, resolveGableTableCases(GABLE_WINDWARD_CP, hOverL, slope, windwardArea, [10, 15, 20, 25, 30, 35, 45, 60]), qh, G, GCpi),
+      roofZoneFromCases({ lbl: 'Leeward roof slope', pos: `h/L ${fmt(hOverL, 2)}; theta ${fmt(slope)} deg`, area: leewardArea }, resolveGableTableCases(GABLE_LEEWARD_CP, hOverL, Math.max(slope, 10), leewardArea, [10, 15, 20]), qh, G, GCpi)
+    ];
+  }
+  return [{ lbl: 'Zone 1', pos: `0 - ${fmt(H)} ft from windward edge`, Cp: -0.9, area: Math.min(H, L) * B }, { lbl: 'Zone 2', pos: `${fmt(H)} - ${fmt(2 * H)} ft from windward edge`, Cp: -0.5, area: Math.max(0, Math.min(2 * H, L) - H) * B }, { lbl: 'Zone 3', pos: `${fmt(2 * H)} ft to edge`, Cp: -0.3, area: Math.max(0, L - 2 * H) * B }].filter((z) => z.area > 0).map((z) => ({ ...z, netP: +(qh * G * z.Cp - qh * GCpi).toFixed(2) }));
+}
+
+// ============================================================
+// 8. Calculation Model
+// ============================================================
+function getFloorElevations(storyHeights) {
+  return storyHeights.map((_, index) => storyHeights.slice(0, index + 1).reduce((sum, value) => sum + value, 0));
+}
+
+function readCalculationModel() {
+  const V = +$('windSpeed').value;
+  const exposure = $('exposureCategory').value;
+  const exposureParams = getExposureParams(exposure);
+  const slope = +$('roofSlope').value;
+  const { L, B, alongRidge, perpendicular } = getDerivedGeometry();
+  const storyHeights = getStoryHeights();
+  const eaveHeight = +storyHeights.reduce((sum, value) => sum + value, 0).toFixed(2);
+  const roofHeightData = getRoofHeightData(eaveHeight, state.roofType, slope, perpendicular);
+  const H = roofHeightData.h;
+  const elevations = getFloorElevations(storyHeights);
+  const { Kd, Kzt, Ke } = WIND_CONSTANTS;
+  const Kz = getKz(H, exposure);
+  const qh = getQz(H, V, Kzt, Kd, Ke, exposure);
+  const qEave = getQz(eaveHeight, V, Kzt, Kd, Ke, exposure);
+  const qFloorValues = elevations.map((elevation) => getQz(elevation, V, Kzt, Kd, Ke, exposure));
+
+  return {
+    roofType: state.roofType,
+    orientation: state.orientation,
+    V,
+    exposure,
+    exposureParams,
+    slope,
+    L,
+    B,
+    alongRidge,
+    perpendicular,
+    storyHeights,
+    eaveHeight,
+    roofHeightData,
+    H,
+    elevations,
+    Kz,
+    qh,
+    qEave,
+    qFloorValues,
+    constants: WIND_CONSTANTS
+  };
+}
+
+// ============================================================
+// 9. Wall And Base Shear Calculations
+// ============================================================
+function getWallSurfaces(model) {
+  return [
+    { name: 'Windward wall', Cp: 0.8, width: model.B, dir: 'pressure', contributesToShear: true },
+    { name: 'Leeward wall', Cp: getLeewardWallCp(model.L, model.B), width: model.B, dir: 'suction', contributesToShear: true },
+    { name: 'Side wall - left', Cp: -0.7, width: model.L, dir: 'suction', contributesToShear: false },
+    { name: 'Side wall - right', Cp: -0.7, width: model.L, dir: 'suction', contributesToShear: false }
+  ];
+}
+
+function calculateWallRows(model) {
+  const { G, GCpi } = model.constants;
+  const hasGableEndArea = model.roofType === 'gable' && model.roofHeightData.roofRise > 0;
+  const gableEndSurfaces = model.orientation === 'parallel'
+    ? ['Windward wall', 'Leeward wall']
+    : ['Side wall - left', 'Side wall - right'];
+
+  return model.storyHeights.flatMap((storyHeight, index) => {
+    const elevation = model.elevations[index];
+    const qFloor = model.qFloorValues[index];
+
+    return getWallSurfaces(model).map((surface, surfaceIndex) => {
+      const netP = surface.Cp > 0
+        ? +(qFloor * G * surface.Cp + model.qh * GCpi).toFixed(2)
+        : +(model.qh * G * surface.Cp - model.qh * GCpi).toFixed(2);
+      const gableArea = hasGableEndArea && index === model.storyHeights.length - 1 && gableEndSurfaces.includes(surface.name)
+        ? 0.5 * surface.width * model.roofHeightData.roofRise
+        : 0;
+      const area = storyHeight * surface.width + gableArea;
+      const force = +(Math.abs(netP) * area / 1000).toFixed(2);
+      const term = surface.Cp > 0 ? 'qz*G*Cp + qh*GCpi' : 'qh*G*Cp - qh*GCpi';
+
+      return { ...surface, story: index + 1, surfaceIndex, elevation, area, gableArea, force, netP, term };
+    });
+  });
+}
+
+function calculateBaseShear(wallRows) {
+  const shearRows = wallRows.filter((row) => row.contributesToShear);
+  const windwardF = +(shearRows.filter((row) => row.name === 'Windward wall').reduce((sum, row) => sum + row.force, 0)).toFixed(2);
+  const leewardF = +(shearRows.filter((row) => row.name === 'Leeward wall').reduce((sum, row) => sum + row.force, 0)).toFixed(2);
+  return { windwardF, leewardF, totalShear: +(windwardF + leewardF).toFixed(2) };
+}
+
+function calculateRoofRows(model) {
+  const { G, GCpi } = model.constants;
+  return getRoofZones(model.roofType, model.orientation, model.H, model.L, model.B, model.qh, G, GCpi, model.slope);
+}
+
+// ============================================================
+// 10. Result Rendering
+// ============================================================
+function renderInputDisplays(model) {
+  $('wsOut').textContent = `${model.V} mph`;
+  $('exposureOut').textContent = model.exposure;
+  $('dimRidgeOut').textContent = `${fmt(model.alongRidge)} ft`;
+  $('dimPerpOut').textContent = `${fmt(model.perpendicular)} ft`;
+  $('storyOut').textContent = clampStoryCount();
+  $('typStoryOut').textContent = `${fmt(+$('typStoryHeight').value || 0, 1)} ft`;
+  $('slopeOut').textContent = `${model.slope} deg`;
+  $('orientationOut').textContent = model.orientation === 'normal' ? 'Normal to ridge' : 'Parallel to ridge';
+  $('runningTotal').textContent = `${fmt(model.eaveHeight, 1)} ft`;
+
+  document.querySelectorAll('.floor-height').forEach((input) => {
+    const chip = input.previousElementSibling.querySelector('.value-chip');
+    if (chip) chip.textContent = `${fmt(+input.value || 0, 1)} ft`;
+  });
+}
+
+function renderCoefficientCards(model) {
+  const { Kd, G, GCpi } = model.constants;
+  $('coeffCards').innerHTML = [
+    ['Wind speed V', model.V, 'mph', false],
+    ['Exposure category', model.exposure, 'Exposure', false],
+    ['Roof type', model.roofType === 'flat' ? 'Flat' : 'Gable', model.roofType === 'flat' ? '' : `${model.slope} deg slope`, false],
+    ['ASCE L / B', `${fmt(model.L)} / ${fmt(model.B)}`, 'L parallel to wind; B perpendicular to wind', true],
+    ['Kz at h', model.Kz, `Exposure ${model.exposure}; alpha ${model.exposureParams.alpha.toFixed(1)}; zg ${fmt(model.exposureParams.zg)} ft; h = ${fmt(model.H, 1)} ft; ${model.roofHeightData.basis}`, false],
+    ['Kd', Kd, 'MWFRS building directionality factor', false],
+    ['G / GCpi', `${G} / +/-${GCpi}`, 'rigid, enclosed', false]
+  ].map(([label, value, unit, accent]) => card(label, value, unit, accent)).join('');
+}
+
+function renderVelocityCards(model) {
+  $('qCards').innerHTML = [
+    card('qh design pressure', `${model.qh} psf`, `at h = ${fmt(model.H, 1)} ft (${model.roofHeightData.basis})`, true),
+    card('qz at eave/story top', `${model.qEave} psf`, `at eave = ${fmt(model.eaveHeight, 1)} ft; windward wall uses story z`, false),
+    card('Windward qz profile', model.qFloorValues.map((q) => `${q} psf`).join(', '), model.elevations.map((e) => `${fmt(e, 1)} ft`).join(', '), false)
+  ].join('');
+}
+
+function renderWallTable(wallRows) {
+  document.querySelector('#wallTable tbody').innerHTML = wallRows.map((surface) => {
+    const badge = surface.dir === 'pressure' ? '<span class="badge badge-pressure">pressure</span>' : '<span class="badge badge-suction">suction</span>';
+    const band = surface.story % 2 === 0 ? 'story-band-b' : 'story-band-a';
+    const start = surface.surfaceIndex === 0 ? ' story-start' : '';
+    const areaNote = surface.gableArea > 0 ? ` <span style="color:var(--faint);font-size:11px">(+${fmt(surface.gableArea)} gable)</span>` : '';
+
+    return `<tr class="${band}${start}"><td class="mono" style="font-weight:600">Story ${surface.story}</td><td>${surface.name}</td><td class="mono">${fmt(surface.elevation, 1)} ft</td><td class="mono">${surface.Cp.toFixed(2)}</td><td class="mono" style="font-size:11px;color:var(--faint)">${surface.term}</td><td><span class="mono" style="font-weight:600">${Math.abs(surface.netP)} psf</span> ${badge}</td><td class="mono">${fmt(surface.area)} ft<sup>2</sup>${areaNote}</td><td class="mono" style="font-weight:600">${surface.force} kips</td></tr>`;
+  }).join('');
+}
+
+function renderRoofTable(model, roofRows) {
+  $('roofPressuresLabel').textContent = model.roofType === 'flat' ? 'Roof Pressures - Flat Roof MWFRS' : 'Roof Pressures - Gable Roof MWFRS';
+  document.querySelector('#roofTable tbody').innerHTML = roofRows.map((zone) => {
+    const force = +(Math.abs(zone.netP) * zone.area / 1000).toFixed(2);
+    const dir = zone.netP >= 0 ? 'pressure' : 'uplift';
+    const badgeClass = zone.netP >= 0 ? 'badge-pressure' : 'badge-uplift';
+
+    return `<tr><td class="mono" style="font-weight:600">${zone.lbl}</td><td class="mono">${zone.pos}</td><td class="mono">${zone.Cp.toFixed(2)}</td><td><span class="mono" style="font-weight:600">${Math.abs(zone.netP)} psf</span> <span class="badge ${badgeClass}">${dir}</span></td><td class="mono">${fmt(zone.area)} ft<sup>2</sup></td><td class="mono" style="font-weight:600">${force} kips</td></tr>`;
+  }).join('');
+}
+
+function renderShearCards(baseShear) {
+  $('shearCards').innerHTML = [
+    card('Windward wall force', `${baseShear.windwardF} kips`, 'sum of story forces', false),
+    card('Leeward wall force', `${baseShear.leewardF} kips`, 'sum of story forces', false),
+    card('Design base shear', `${baseShear.totalShear} kips`, 'side-wall suction faces shown separately above', true)
+  ].join('');
+}
+
+function renderResults(model, wallRows, roofRows, baseShear) {
+  renderInputDisplays(model);
+  drawPreview(model);
+  renderCoefficientCards(model);
+  renderVelocityCards(model);
+  renderWallTable(wallRows);
+  renderRoofTable(model, roofRows);
+  renderShearCards(baseShear);
+}
+
+// ============================================================
+// 11. Central Orchestration
+// ============================================================
+function calc() {
+  updateConditionalFields();
+  const model = readCalculationModel();
+  const wallRows = calculateWallRows(model);
+  const roofRows = calculateRoofRows(model);
+  const baseShear = calculateBaseShear(wallRows);
+  renderResults(model, wallRows, roofRows, baseShear);
+}
+
+// ============================================================
+// 12. Event Wiring
+// ============================================================
+document.querySelectorAll('.roof-option').forEach((button) => button.addEventListener('click', () => { state.roofType = button.dataset.roof; setPressed('.roof-option', state.roofType, 'roof'); calc(); }));
+document.querySelectorAll('.toggle-option').forEach((button) => button.addEventListener('click', () => { state.orientation = button.dataset.orientation; setPressed('.toggle-option', state.orientation, 'orientation'); calc(); }));
+['windSpeed','exposureCategory','dimRidge','dimPerp','typStoryHeight','roofSlope'].forEach((id) => $(id).addEventListener(id === 'exposureCategory' ? 'change' : 'input', () => { if (id === 'typStoryHeight' && $('customFloors').checked) renderFloorInputs(); calc(); }));
+$('storyCount').addEventListener('input', () => { renderFloorInputs(); calc(); });
+$('customFloors').addEventListener('change', () => { $('customFloorPanel').classList.toggle('active', $('customFloors').checked); renderFloorInputs(); calc(); });
+renderFloorInputs(); updateConditionalFields(); calc();
+</script>
+</body>
+</html>
+
